@@ -1,0 +1,11 @@
+name = FedEx Shipping Estimate
+description = A module that allows a user to calculate FedEx shipping costs.
+package = PEX Modules
+core = 7.x
+
+; Information added by Cedric on 2011-04-12
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "PEX_FedEx"
+datestamp = "1302665231"
+

@@ -1,0 +1,5 @@
+name = CT Octoplex
+description = Connects to an FTP server and updates Octoplex content
+core = 7.x
+package = Carling Technologies
+version = 7.x-1.1

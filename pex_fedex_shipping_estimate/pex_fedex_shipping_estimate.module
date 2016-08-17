@@ -1,0 +1,340 @@
+<?php
+
+require_once('nusoap.php');
+require_once('fedex-common.php5');
+/*
+function pex_fedex_shipping_estimate_menu() {
+
+	$items = array();
+
+  $items['shipping_estimate'] = array(
+		'title' => 'Get Shipping Estimates',
+		'page callback' => 'pex_fedex_shipping_estimate_intro',
+		'access callback' => TRUE,
+		'expanded' => TRUE,
+	);
+}
+  
+function pex_fedex_shipping_estimate_intro() {
+
+	$markup = t('');
+	
+	return $markup;
+}
+  */
+function pex_fedex_shipping_estimate_block_info() {
+
+	$blocks['pex_fedex'] = array(
+		'info' => t('FedEx Shipping Estimate'),
+		'status' => TRUE,
+		'region' => 'sidebar_first',
+	);
+
+	return $blocks;
+}
+
+function pex_fedex_shipping_estimate_block_view($delta = '') {
+
+	$block = null;
+  
+	switch ($delta) {
+		case 'pex_fedex':
+			$block['subject'] = null;
+			$block['content'] = drupal_get_form('pex_fedex_shipping_estimate_form');
+			break;
+	}
+	
+	return $block;
+}
+
+function pex_fedex_shipping_estimate_form($form, &$form_state) {
+
+	$form['#attached']['css'] = array(
+		drupal_get_path('module', 'pex_fedex_shipping_estimate') . '/pex_fedex_shipping_estimate.css',
+	);
+  
+	$form['#attached']['js'] = array(
+		drupal_get_path('module', 'pex_fedex_shipping_estimate') . '/pex_fedex_shipping_estimate.js',
+	);
+  
+  /*
+  $form['shipper_country_code'] = array(
+    '#title' => 'Country',
+    '#type' => 'select',
+    '#options' => array(
+      'US' => 'US',
+      'CA' => 'CA',
+    ),
+  );
+  
+$form['flds_shipper'] = array(
+  '#type' => 'fieldset',
+  '#title' => t('flds_shipper settings'),
+  '#weight' => 5,
+  '#collapsible' => TRUE,
+  '#collapsed' => FALSE,
+);
+  
+  $form['recipient_country_code'] = array(
+    '#title' => 'Country',
+    '#type' => 'select',
+    '#options' => array(
+      'US' => 'US',
+      'CA' => 'CA',
+    ),
+  );
+  
+  $form['recipient_postal_code'] = array(
+    '#type' => 'textfield',
+    '#title' => t("Zip"),
+	'#size' => 10,
+  );
+  
+  $form['weight'] = array(
+    '#type' => 'textfield',
+    '#title' => t("Weight"),
+	'#size' => 5,
+  );
+  
+  $form['length'] = array(
+    '#type' => 'textfield',
+    '#title' => t("Length"),
+	'#size' => 5,
+  );
+  
+  $form['width'] = array(
+    '#type' => 'textfield',
+    '#title' => t("Width"),
+	'#size' => 5,
+  );
+  
+  $form['height'] = array(
+    '#type' => 'textfield',
+    '#title' => t("Height"),
+	'#size' => 5,
+  );
+  
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#ajax' => array(
+      'callback' => 'pex_fedex_shipping_estimate_form_callback',
+      'wrapper' => 'results_div',
+      'name' => 'submit',
+    ),
+    '#value' => t('Get Quote'),
+  );
+  
+  $form['results_div'] = array(
+    '#type' => 'markup',
+    '#prefix' => '<div id="results_div">',
+    '#suffix' => '</div>',
+    '#markup' => '',
+  );
+  */
+  
+	$form['flds_shipper'] = array(
+		'#type' => 'fieldset',
+		'#title' => t("Shipper's Address"),
+	);
+	
+	$form['fld_shipper_country'] = array(
+		'#title' => 'Country',
+		'#type' => 'select',
+		'#wrapper' => 'flds_shipper',
+		'#options' => array(
+			'US' => 'US',
+			'CA' => 'CA',
+		),
+	);
+
+	$form['flds_recipient'] = array(
+		'#type' => 'fieldset',
+		'#title' => t("Recipient's Address"),
+	);
+	
+	$form['submit'] = array(
+		'#type' => 'submit',
+		'#ajax' => array(
+		'callback' => 'pex_fedex_shipping_estimate_form_callback',
+		'wrapper' => 'results_div',
+		'name' => 'submit',
+		),
+		'#value' => t('Get Quote'),
+	);
+	
+	return $form;
+}
+
+function pex_fedex_shipping_estimate_theme()
+{
+    return array
+    (
+        'pex_fedex_shipping_estimate_form' => array
+        (
+            'render element' => 'form'
+        ),
+    );
+}
+
+function theme_pex_fedex_shipping_estimate_form($variables)
+{
+	return drupal_render_children($form);
+	
+    $form = $variables['form'];
+    $output = '<h3>' . t('FedEx Shipping Estimate') . '</h3>';
+    $output .= '<table id="fedex_table">';
+	$output .= '<tr>';
+	$output .= '<td>From: </td>';
+	$output .= '<td>';
+    $output .= drupal_render($form['shipper_country_code']);
+ 	$output .= '</td>';
+	$output .= '<td colspan="3">';
+    $output .= drupal_render($form['shipper_postal_code']);
+ 	$output .= '</td>';
+	$output .= '</tr>';
+	$output .= '<tr>';
+	$output .= '<td>To: </td>';
+	$output .= '<td>';
+    $output .= drupal_render($form['recipient_country_code']);
+ 	$output .= '</td>';
+	$output .= '<td colspan="3">';
+    $output .= drupal_render($form['recipient_postal_code']);
+ 	$output .= '</td>';
+	$output .= '</tr>';
+	$output .= '<tr>';
+	$output .= '<td>Package: </td>';
+	$output .= '<td>';
+    $output .= drupal_render($form['weight']);
+ 	$output .= '</td>';
+	$output .= '<td>';
+    $output .= drupal_render($form['length']);
+ 	$output .= '</td>';
+	$output .= '<td>';
+    $output .= drupal_render($form['width']);
+ 	$output .= '</td>';
+	$output .= '<td>';
+    $output .= drupal_render($form['height']);
+ 	$output .= '</td>';
+	$output .= '</tr>';
+	$output .= '<tr>';
+	$output .= '<td colspan="5">';
+    $output .= drupal_render($form['submit']);
+ 	$output .= '</td>';
+	$output .= '</tr>';
+    $output .= '</table>';
+    $output .= drupal_render($form['results_div']);
+	// render the remaining elements
+	$output .= drupal_render_children($form);
+	
+    //return $output;
+}
+
+function pex_fedex_shipping_estimate_form_callback($form, $form_state) {
+
+	$servicetypes[] = 'EUROPE_FIRST_INTERNATIONAL_PRIORITY';
+	$servicetypes[] = 'FEDEX_1_DAY_FREIGHT';
+	$servicetypes[] = 'FEDEX_2_DAY';
+	$servicetypes[] = 'FEDEX_2_DAY_FREIGHT';
+	$servicetypes[] = 'FEDEX_3_DAY_FREIGHT';
+	$servicetypes[] = 'FEDEX_EXPRESS_SAVER';
+	$servicetypes[] = 'FEDEX_FREIGHT';
+	$servicetypes[] = 'FEDEX_GROUND';
+	$servicetypes[] = 'FEDEX_NATIONAL_FREIGHT';
+	$servicetypes[] = 'FIRST_OVERNIGHT';
+	$servicetypes[] = 'GROUND_HOME_DELIVERY';
+	$servicetypes[] = 'INTERNATIONAL_ECONOMY';
+	$servicetypes[] = 'INTERNATIONAL_ECONOMY_FREIGHT';
+	$servicetypes[] = 'INTERNATIONAL_FIRST';
+	$servicetypes[] = 'INTERNATIONAL_GROUND';
+	$servicetypes[] = 'INTERNATIONAL_PRIORITY';
+	$servicetypes[] = 'INTERNATIONAL_PRIORITY_FREIGHT';
+	$servicetypes[] = 'PRIORITY_OVERNIGHT';
+	$servicetypes[] = 'SMART_POST';
+	$servicetypes[] = 'STANDARD_OVERNIGHT';
+	
+	$element = $form['results_div'];
+	$results = "Rates:&nbsp;<select>";
+	
+	foreach($servicetypes as $servicetype) {
+		//$results .= get_fedex_rate($form, $servicetype);
+	}
+	
+	$results .= "</select>";
+	$element['#markup'] = $results;
+	return $element;
+}
+
+function get_fedex_rate($form, $servicetype) {
+
+	$output = "";
+	$module_path = drupal_get_path('module', 'pex_fedex_shipping_estimate');
+	$path_to_wsdl = $module_path . "/fedex.wsdl";
+	ini_set("soap.wsdl_cache_enabled", "0");
+	$client = new SoapClient($path_to_wsdl); // Refer to http://us3.php.net/manual/en/ref.soap.php for more information
+	
+	$streetlines1[] = "";
+
+	$address1[] = $streetlines1;
+	$address1["City"] = ""; 
+	$address1["StateOrProvinceCode"] = ""; 
+	$address1["PostalCode"] = $form["shipper_postal_code"]["#value"];
+	$address1["CountryCode"] = $form["shipper_country_code"]["#value"];
+	//$address1["Residential"] = true;
+
+	$streetlines2[] = "";
+
+	$address2[] = $streetlines2;
+	$address2["City"] = ""; 
+	$address2["StateOrProvinceCode"] = ""; 
+	$address2["PostalCode"] = $form["recipient_postal_code"]["#value"];
+	$address2["CountryCode"] = $form["recipient_country_code"]["#value"];
+	//$address2["Residential"] = true;
+	
+	$request['WebAuthenticationDetail'] = array('UserCredential' => array('Key' => "Rnc3RhHQwvXN7aZA", 'Password' => "IlWKVo4OHWIkMtdh1qkbX9Ut2")); 
+	$request['ClientDetail'] = array('AccountNumber' => "510087607", 'MeterNumber' => "100052289");
+	$request['TransactionDetail'] = array('CustomerTransactionId' => ' *** Rate Request v9 using PHP ***');
+	$request['Version'] = array('ServiceId' => 'crs', 'Major' => '9', 'Intermediate' => '0', 'Minor' => '0');
+	$request['ReturnTransitAndCommit'] = true;
+	$request['RequestedShipment']['DropoffType'] = 'REGULAR_PICKUP';
+	$request['RequestedShipment']['ShipTimestamp'] = date('c');	
+	$request['RequestedShipment']['ServiceType'] = $servicetype;
+	$request['RequestedShipment']['PackagingType'] = 'YOUR_PACKAGING';
+	$request['RequestedShipment']['Shipper'] = array('Address' => $address1);
+	$request['RequestedShipment']['Recipient'] = array('Address' => $address2);
+	$request['RequestedShipment']['ShippingChargesPayment'] = array('PaymentType' => 'SENDER','Payor' => array('AccountNumber' => "510087607",'CountryCode' => 'US'));
+	$request['RequestedShipment']['RateRequestTypes'] = 'ACCOUNT'; 
+	$request['RequestedShipment']['RateRequestTypes'] = 'LIST'; 
+	$request['RequestedShipment']['PackageCount'] = 1;
+	$request['RequestedShipment']['PackageDetail'] = 'INDIVIDUAL_PACKAGES';
+	$request['RequestedShipment']['RequestedPackageLineItems'] = array('0' => array('Weight' => array('Value' => $form["weight"]["#value"],
+																						'Units' => 'LB'),
+																						'Dimensions' => array('Length' => $form["length"]["#value"],
+																							'Width' => $form["width"]["#value"],
+																							'Height' => $form["height"]["#value"],
+																							'Units' => 'IN')));																						
+	try {
+		if(setEndpoint('changeEndpoint')) {
+			$newLocation = $client->__setLocation(setEndpoint('endpoint'));
+		}
+		
+		$response = $client ->getRates($request);
+
+		$ws_result = serialize($response);
+
+		$fp = fopen("C:/Users/User/fedex_response1.txt", "w");
+		fwrite($fp, $ws_result);
+		fclose($fp);
+
+		if ($response -> HighestSeverity != 'FAILURE' && $response -> HighestSeverity != 'ERROR') {  	
+			$rateReply = $response -> RateReplyDetails;
+			$total = number_format($rateReply->RatedShipmentDetails[0]->ShipmentRateDetail->TotalNetCharge->Amount,2,".",",") + number_format($rateReply->RatedShipmentDetails[0]->ShipmentRateDetail->TotalSurcharges->Amount,2,".",",");
+			$output.= '<option>' . $rateReply -> ServiceType . ' ($' . $total . ')</option>';
+		} else {
+			//$output.= '<option>' . $servicetype . ' (' . $response->Notifications->Message . ')</span>';
+		} 
+	} catch (SoapFault $exception) {
+	   //$output.= '<option>' . $servicetype . ' (' . $response->Exceptions->Message . ')</span>';
+	}
+
+	return $output;
+}

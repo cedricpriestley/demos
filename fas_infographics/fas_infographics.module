@@ -1,0 +1,264 @@
+<?php
+
+function fas_infographics_menu() {
+  $items['admin/fas'] = array(
+	  'title' => 'FAS Administration Tools',
+	  'description' => t('This is the administration page for custom FAS functionality.'),
+	  'position' => 'right',
+	  'weight' => 0,
+      'page callback' => 'system_admin_menu_block_page',
+	  'access arguments' => array('administer fas'),
+      'file' => 'system.admin.inc',
+      'file path' => drupal_get_path('module', 'system'),	  
+  );
+  $items['admin/fas/infographics'] = array(
+	  'title' => 'Infographics Import',
+	  'description' => t('This is an administration page to import infographics data.'),
+	  //'position' => 'right',
+	  //'weight' => 0,
+	  'page callback' => 'get_infographics_admin_page',
+	  'access arguments' => array('administer infographics'),
+  );
+
+  return $items;
+}
+
+function fas_infographics_permission() {
+  $permissions = array(
+      'administer fas' => array(
+          'title' => t('Administer FAS custom functionality'),
+          'restrict access' => TRUE,
+      ),
+      'administer infographics' => array(
+          'title' => t('Administer FAS Infographics Import'),
+          'restrict access' => TRUE,
+      ),	  
+  );
+  return $permissions;
+}
+
+function get_infographics_admin_page() {
+
+  $infographics_import_form = drupal_get_form('fas_infographics_form');
+  return drupal_render($infographics_import_form); 
+}
+
+function fas_infographics_form($form, &$form_stage) {
+
+  $form = array();
+  
+  $form['div-results'] = array(
+      '#type' => 'markup',
+      '#prefix' => '<div id="div-results">',
+      '#suffix' => '</div>',
+      '#markup' => '',
+  );
+  
+  $form['textbox-fiscal-year'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Fiscal Year'),
+      '#default_value' => '',
+      '#size' => 60,
+      '#maxlength' => 128,
+  );  
+  
+  $form['button-submit'] = array(
+    '#attributes' => array(
+	  'class' => array(''),
+	),
+	'#type' => 'submit',
+	'#value' => t('Import'),
+	/*'#ajax' => array(
+	  'callback' => 'fas_infographics_form_submit',
+	  'wrapper' => 'div-results',
+	)*/
+  );
+  
+  return $form;
+}
+
+function fas_infographics_form_submit($form, $form_state) {
+  $year = $form_state['input']['textbox-fiscal-year'];
+
+  if (!is_numeric($year)) {
+    drupal_set_message("You must input a number for the year.", 'error');
+  } else {
+    reset_esr_data();
+    get_country_data($year);
+  
+    drupal_set_message("Infographics data for fiscal year " . $year . " has been imported.", 'status');
+    //$output = "Infographics data for the year " . $year . " has been imported.";  
+    //return $output;
+  }
+}
+
+function db_connect() {
+
+  $server_name = "162.79.22.211";
+  $user_id = "drupal_user";
+  $password = "drupaluser";
+  $database = "FAS_EntDW";
+  
+  $connection_info = array( "Database"=>$database, "UID"=>$user_id, "PWD"=>$password, "LoginTimeout"=>120);
+  $connection = sqlsrv_connect( $server_name, $connection_info);
+
+  if( $connection ) {
+    return $connection;
+  } else {
+    echo "Connection could not be established.";
+    die( print_r( sqlsrv_errors(), true));
+  }
+}
+
+function get_country_data($year) {
+  
+  $connection = db_connect();
+  
+  $query = "SELECT TOP 25 ROW_NUMBER() OVER (ORDER BY SUM(general_total_cost) desc) AS rank
+            , c.country_name
+            , SUM(general_total_cost) AS total
+            FROM trade_fact t 
+              JOIN data_source_dim d ON t.data_source_key = d.data_source_key
+              JOIN time_period_dim tp ON t.time_key = tp.time_key
+              JOIN country_dim c ON t.partner_country_key = c.country_key
+              JOIN product_hierarchy_dim ph ON t.product_hierarchy_key = ph.product_hierarchy_key
+            WHERE d.data_source_name = 'FASUSTR' and product_type_code = 'X'
+              AND tp.cal_yyyy = " . $year . " AND ph.product_group_name = 'BICO-HS6'
+            GROUP BY c.country_name
+            ORDER BY SUM(general_total_cost) desc";
+   
+  $result = sqlsrv_query($connection, $query);
+  
+  if ($result === false) {  
+    die( print_r( sqlsrv_errors(), true));
+  }  
+  
+  while( $country_data = sqlsrv_fetch_array( $result, SQLSRV_FETCH_ASSOC) ) {
+    $tid = save_country_data($country_data);
+    get_commodity_data($country_data['country_name'], $year, $tid);    
+  }
+  
+  sqlsrv_close($connection);
+}
+
+function search_country_term($name, $vid) {
+  $tid = db_query("SELECT tid
+            FROM taxonomy_term_data
+            WHERE vid = :vid
+            AND name = :name", array(':name' => $name, ':vid' => $vid))->fetchColumn();
+  return $tid;
+}
+
+function save_country_data($country_data) {
+  
+  $country_name = $country_data['country_name'];
+  $country_rank = $country_data['rank'];
+  $country_total = $country_data['total'];
+  
+  $tid = search_country_term($country_name, 3);
+  $country_term = taxonomy_term_load($tid); 
+  
+  $country_term->field_esr_rank['und'][0]['value'] = $country_rank;
+  $country_term->field_esr_sales_total['und'][0]['value'] = $country_total;
+   
+  if (!isset($country_term->field_esr_map['und'])) {
+    global $base_url;
+
+    $filename = strtolower($country_name) . '.png';
+    $url = $base_url . "/sites/all/themes/f1ux/images/" . $filename;
+
+    $image = file_get_contents($url);
+    
+    $file = file_save_data($image, 'public://' . $filename, FILE_EXISTS_REPLACE);
+    $country_term->field_esr_map = array(LANGUAGE_NONE => array('0' => (array)$file));
+  }
+  
+  taxonomy_term_save($country_term);
+  
+  return $tid;
+}
+
+function get_commodity_data($country_name, $year, $country_tid) {
+  
+  $connection = db_connect();
+  
+  $query = "SELECT TOP 5 ROW_NUMBER() OVER (ORDER BY SUM(general_total_cost) desc) AS rank
+            , aggregate_name AS commodity_name
+            , SUM(general_total_cost) AS total
+            FROM trade_fact t 
+              JOIN data_source_dim d ON t.data_source_key = d.data_source_key
+              JOIN time_period_dim tp ON t.time_key = tp.time_key
+              JOIN country_dim c ON t.partner_country_key = c.country_key
+              JOIN product_hierarchy_dim ph ON t.product_hierarchy_key = ph.product_hierarchy_key
+            WHERE d.data_source_name = 'FASUSTR' and product_type_code = 'X'
+              AND tp.cal_yyyy = " . $year . "
+              AND ph.product_group_name = 'BICO-HS6'
+              AND c.country_name = '" . $country_name . "'
+            GROUP BY c.country_name, aggregate_name
+            ORDER BY SUM(general_total_cost) DESC";
+            
+  $result = sqlsrv_query($connection, $query);
+  
+  if ($result === false) {  
+    die( print_r( sqlsrv_errors(), true));
+  }  
+ 
+  while( $commodity_data = sqlsrv_fetch_array( $result, SQLSRV_FETCH_ASSOC) ) {
+    save_commodity_data($commodity_data, $country_name, $country_tid);
+  }
+
+  sqlsrv_close($connection);
+}
+
+function reset_esr_data() {
+  $query = "UPDATE field_data_field_esr_rank
+            SET field_esr_rank_value = 0";
+
+  $query = "UPDATE field_data_field_esr_sales_total
+            SET field_esr_sales_total_value = 0";
+}
+
+function save_commodity_data($commodity_data, $country_name, $country_tid) {
+  $commodity_name = $commodity_data['commodity_name'];
+  $commodity_rank = $commodity_data['rank'];
+  $commodity_total = $commodity_data['total'];
+  
+  $nid = search_esr_node($country_name, $commodity_name, $country_tid);
+  
+  if (is_numeric($nid) && $nid > 0) {
+    $commodity_node = node_load($nid);
+    $commodity_node->field_esr_commodity_name['und'][0]['value'] = $commodity_name;        
+    $commodity_node->field_esr_sales_total['und'][0]['value'] = $commodity_total;
+    $commodity_node->field_esr_rank['und'][0]['value'] = $commodity_rank;
+    node_save($commodity_node);
+  } else {
+    global $user;
+    $commodity_node = new stdClass();
+    $commodity_node->type = "export_sale";
+    $commodity_node->title = $country_name . " - " . $commodity_name;    
+    $commodity_node->language = 'und';    
+    node_object_prepare($commodity_node);
+    $commodity_node->uid = $user->uid;
+    $commodity_node->status = 1;
+    $commodity_node->promote = 0;
+    $commodity_node->comment = 0;
+    $commodity_node->field_esr_commodity_name['und'][0]['value'] = $commodity_name;    
+    $commodity_node->field_esr_country['und'][0]['tid'] = $country_tid;
+    $commodity_node->field_esr_sales_total['und'][0]['value'] = $commodity_total;
+    $commodity_node->field_esr_rank['und'][0]['value'] = $commodity_rank;    
+    node_save($commodity_node);
+  }
+}
+
+function search_esr_node($country_name, $commodity_name, $country_tid) {
+
+  $query = "SELECT c.entity_id AS nid
+            FROM field_data_field_esr_country c
+              INNER JOIN node n ON n.nid = c.entity_id
+            WHERE n.title = '" . $country_name . " - " . $commodity_name . "'
+              AND c.field_esr_country_tid = " . $country_tid;
+
+  $nid = db_query($query)->fetchColumn();  
+
+  return $nid;
+}
