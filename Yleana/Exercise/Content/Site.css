@@ -1,0 +1,52 @@
+﻿h2 {
+    margin-bottom: 10px;
+}
+
+#customers {
+    display: inline-block;
+}
+
+#view-list-customers {
+    display: none;
+    float: left;
+    width: 60%;
+}
+
+#view-add-customer {
+    display: none;
+    float: right;
+}
+
+.form {
+    width: 500px;
+}
+
+.form-field {
+    margin-bottom: 10px;
+}
+
+.form-field label {
+    width: 120px;
+    display: inline-block;
+    text-align: right;
+}
+
+.form-submit {
+    margin-top: 15px;
+    text-align: center;
+}
+
+#add-customer-results,
+#view-customers-results {
+    margin-top: 25px;
+}
+
+footer {
+    clear: both;
+    margin-top: 50px;
+}
+
+.validationMessage {
+    margin-left: 3px;
+    color: #ff0000;
+}

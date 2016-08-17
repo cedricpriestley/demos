@@ -1,0 +1,111 @@
+﻿@Scripts.Render("~/bundles/exercise")
+
+@{
+    ViewBag.Title = "Home";
+}
+
+<div>
+    <button id="view-customers-submit" type="button">View Customers</button>
+</div>
+
+<div id="customers">
+    <div id="view-list-customers">
+        <div id="view-customers-results"></div>
+        <h2>Customers</h2>
+        <table border="1" data-bind="visible:
+        Customers().length > 0">
+            <tr>
+                <th>CustomerID</th>
+                <th>Customer Name</th>
+                <th>Contact Name</th>
+                <th>Address</th>
+                <th>City</th>
+                <th>Postal Code</th>
+                <th>Country</th>
+            </tr>
+            <tbody data-bind="foreach: Customers">
+                <tr>
+                    <td><span data-bind="text: CustomerID" /></td>
+                    <td><span data-bind="text: CustomerName" /></td>
+                    <td><span data-bind="text: ContactName" /></td>
+                    <td><span data-bind="text: Address" /></td>
+                    <td><span data-bind="text: City" /></td>
+                    <td><span data-bind="text: PostalCode" /></td>
+                    <td><span data-bind="text: Country" /></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div id="view-add-customer">
+        <div id="add-customer-results"></div>
+        <form id="form-" method="post" data-bind="submit: SaveCustomer">
+            <div class="form">
+                <h2>Add Customer</h2>
+                <div class="form-field">
+                    <label for="field-customer-name">Customer Name: </label>
+                    <input id="field-customer-name" data-bind="value: CustomerName" />
+                </div>
+
+                <div class="form-field">
+                    <label for="field-contact-name">Contact Name: </label>
+                    <input id="field-contact-name" data-bind="value: ContactName" />
+                </div>
+                <div class="form-field">
+                    <label for="field-address">Address: </label>
+                    <input id="field-address" data-bind="value: Address" />
+                </div>
+                <div class="form-field">
+                    <label for="field-city">City: </label>
+                    <input id="field-city" data-bind="value: City" />
+                </div>
+                <div class="form-field">
+                    <label for="field-postal-code">Postal Code: </label>
+                    <input id="field-postal-code" data-bind="value: PostalCode" />
+                </div>
+                <div class="form-field">
+                    <label for="field-country">Country: </label>
+                    <input id="field-country" data-bind="value: Country" />
+                </div>
+                <div class="form-submit">
+                    <input type="submit" value="Save" />
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        try {
+            ko.validation.configure({
+                registerExtenders: true,
+                messagesOnModified: true,
+                insertMessages: true,
+                parseInputAttributes: true,
+                messageTemplate: null
+            });
+        }
+        catch (e) { }
+
+        $('#view-customers-submit').click(function () {
+            $.ajax({
+                url: '@Url.Action("GetCustomers", "Home")',
+                contentType: "application/json; charset=utf-8",
+                type: "post",
+                dataType: "json",
+                success: function (data) {
+                    viewModel = new ViewModel(data);
+                    ko.applyBindings(viewModel, document.getElementById('view-list-customers'));
+
+                    ko.applyBindings(new CustomerDetail(0, '', '', '', '', '', ''), document.getElementById('view-add-customer'))
+
+                    $('#view-list-customers, #view-add-customer').css('display', 'inline-block');
+                },
+                error: function (err) {
+                    alert(err.status + " - " + err.statusText);
+                }
+            })
+        });
+    });
+</script>
